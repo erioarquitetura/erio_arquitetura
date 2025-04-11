@@ -1,0 +1,180 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Poppins:wght@400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+
+    --primary: 160 100% 29%;
+    --primary-foreground: 210 40% 98%;
+
+    --secondary: 210 40% 96.1%;
+    --secondary-foreground: 222.2 47.4% 11.2%;
+
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+
+    --accent: 210 40% 96.1%;
+    --accent-foreground: 222.2 47.4% 11.2%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 160 100% 29%;
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 160 20% 98%;
+    --sidebar-foreground: 160 10% 20%;
+    --sidebar-primary: 160 100% 29%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 160 10% 95%;
+    --sidebar-accent-foreground: 160 10% 20%;
+    --sidebar-border: 160 20% 90%;
+    --sidebar-ring: 160 100% 29%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 160 100% 40%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 160 100% 40%;
+
+    --sidebar-background: 160 25% 10%;
+    --sidebar-foreground: 160 10% 90%;
+    --sidebar-primary: 160 100% 40%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 160 15% 15%;
+    --sidebar-accent-foreground: 160 10% 90%;
+    --sidebar-border: 160 15% 20%;
+    --sidebar-ring: 160 100% 40%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+}
+
+/* Estilizações Globais */
+@layer components {
+  .page-title {
+    @apply text-2xl md:text-3xl font-heading font-semibold text-gray-800 dark:text-gray-100;
+  }
+  
+  .page-subtitle {
+    @apply text-lg md:text-xl font-heading font-medium text-gray-600 dark:text-gray-300;
+  }
+  
+  .card-title {
+    @apply text-lg font-heading font-semibold text-gray-800 dark:text-gray-100;
+  }
+
+  .section-title {
+    @apply text-lg font-heading font-medium text-gray-700 dark:text-gray-200;
+  }
+  
+  .data-grid {
+    @apply w-full border border-gray-200 dark:border-gray-700 rounded-lg overflow-hidden;
+  }
+  
+  .data-grid-header {
+    @apply bg-gray-100 dark:bg-gray-800 text-left text-sm font-medium text-gray-700 dark:text-gray-300 px-4 py-3;
+  }
+  
+  .data-grid-cell {
+    @apply px-4 py-3 text-sm border-t border-gray-200 dark:border-gray-700;
+  }
+
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+
+  /* Transições */
+  .transition-all-300 {
+    @apply transition-all duration-300 ease-in-out;
+  }
+}
+
+/* Animações personalizadas para substituir o framer-motion */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.8s ease-in-out forwards;
+}
+
+.animate-fade-in-up {
+  animation: fadeInUp 0.8s ease-in-out forwards;
+}
+
+/* Delay para diferentes elementos */
+.animate-fade-in:nth-child(2) {
+  animation-delay: 0.5s;
+}
+
+.animate-fade-in:nth-child(3) {
+  animation-delay: 1s;
+}
+
+.animate-fade-in:nth-child(4) {
+  animation-delay: 1.5s;
+}
