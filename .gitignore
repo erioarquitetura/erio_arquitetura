@@ -22,3 +22,22 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Env files
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Arquivos de autenticação
+*.pem
+*.key
+
+# Arquivos de cache
+.cache/
+.cursor/
+
+# Arquivos de backup
+*.bak
+*.backup

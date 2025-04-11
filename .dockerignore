@@ -1,0 +1,39 @@
+# Arquivos/diretórios a serem ignorados pelo Docker
+
+# Dependências
+node_modules
+npm-debug.log
+yarn-debug.log
+yarn-error.log
+
+# Build
+dist
+build
+.cache
+
+# Ambiente
+.env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# Sistema
+.DS_Store
+Thumbs.db
+
+# Editor/IDE
+.idea
+.vscode
+*.swp
+*.swo
+
+# Git
+.git
+.gitignore
+
+# Outros
+README.md
+CHANGELOG.md
+.cursor
+*.log 
