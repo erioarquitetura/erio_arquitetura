@@ -75,141 +75,165 @@ export const obterEstatisticasDashboard = async (mesAnoSelecionado?: string): Pr
       ?.filter(item => item.status_pagamento === 'pendente')
       .reduce((total, item) => total + (item.valor || 0), 0) || 0;
 
-    // 5. Obter dados para gráfico de categorias de receitas
+    // 5. Obter dados para gráfico de categorias de receitas e despesas
     // Inicializar com alguns valores padrão caso não existam dados reais
     let receitasPorCategoria: Record<string, number> = {};
-    
-    try {
-      // Buscar itens de receita com sua categoria
-      const { data: receitasItensComCategoria } = await supabase
-        .from('receitas_itens' as any)
-        .select(`
-          id,
-          valor,
-          status,
-          receita:receita_id (
-            categoria_id
-          )
-        `)
-        .eq('status', 'pago')
-        .gte('data_vencimento', dataInicioMesAtual)
-        .lte('data_vencimento', dataFimMesAtual);
-      
-      // Buscar todas as categorias de receita
-      const { data: categoriasReceita } = await supabase
-        .from('categorias_receitas' as any)
-        .select('id, nome');
-      
-      // Mapear IDs de categorias para nomes
-      const mapaCategorias: Record<string, string> = {};
-      if (categoriasReceita && Array.isArray(categoriasReceita)) {
-        categoriasReceita.forEach((cat: any) => {
-          mapaCategorias[cat.id] = cat.nome;
-        });
-      }
-      
-      // Agrupar valores por categoria
-      const somaPorCategoria: Record<string, number> = {};
-      
-      if (receitasItensComCategoria && Array.isArray(receitasItensComCategoria)) {
-        receitasItensComCategoria.forEach((item: any) => {
-          const categoriaId = item.receita?.categoria_id;
-          const categoriaNome = categoriaId ? (mapaCategorias[categoriaId] || 'Outros') : 'Sem categoria';
-          
-          if (!somaPorCategoria[categoriaNome]) {
-            somaPorCategoria[categoriaNome] = 0;
-          }
-          
-          somaPorCategoria[categoriaNome] += Number(item.valor) || 0;
-        });
-      }
-      
-      // Se não tiver dados reais, usar dados de exemplo
-      if (Object.keys(somaPorCategoria).length === 0) {
-        receitasPorCategoria = {
-          "Projetos": 5000,
-          "Consultoria": 3000,
-          "Outros": 2000
-        };
-      } else {
-        receitasPorCategoria = somaPorCategoria;
-      }
-    } catch (error) {
-      console.error('Erro ao obter categorias de receitas:', error);
-      // Usar dados de exemplo em caso de erro
-      receitasPorCategoria = {
-        "Projetos": 5000,
-        "Consultoria": 3000,
-        "Outros": 2000
-      };
-    }
-    
-    // 6. Obter dados para gráfico de categorias de despesas
-    // Inicializar com alguns valores padrão caso não existam dados reais
     let despesasPorCategoria: Record<string, number> = {};
     
-    try {
-      // Buscar despesas com suas categorias
-      const { data: despesasComCategoria } = await supabase
-        .from('despesas' as any)
-        .select(`
-          id,
-          valor,
-          status_pagamento,
-          categoria_id
-        `)
-        .eq('status_pagamento', 'pago')
-        .gte('data_lancamento', dataInicioMesAtual)
-        .lte('data_lancamento', dataFimMesAtual);
-      
-      // Buscar todas as categorias de despesa
-      const { data: categoriasDespesa } = await supabase
-        .from('categorias_despesas' as any)
-        .select('id, nome');
-      
-      // Mapear IDs de categorias para nomes
-      const mapaCategoriasDespesas: Record<string, string> = {};
-      if (categoriasDespesa && Array.isArray(categoriasDespesa)) {
-        categoriasDespesa.forEach((cat: any) => {
-          mapaCategoriasDespesas[cat.id] = cat.nome;
-        });
-      }
-      
-      // Agrupar valores por categoria
-      const somaPorCategoriaDespesa: Record<string, number> = {};
-      
-      if (despesasComCategoria && Array.isArray(despesasComCategoria)) {
-        despesasComCategoria.forEach((item: any) => {
-          const categoriaId = item.categoria_id;
-          const categoriaNome = categoriaId ? (mapaCategoriasDespesas[categoriaId] || 'Outros') : 'Sem categoria';
+    // Usar Promise.all para buscar dados de categorias em paralelo
+    await Promise.all([
+      // Buscar dados de categorias de receitas
+      (async () => {
+        try {
+          // Buscar itens de receita com sua categoria
+          const { data: receitasItensComCategoria, error: receitasError } = await supabase
+            .from('receitas_itens' as any)
+            .select(`
+              id,
+              valor,
+              status,
+              receita:receita_id (
+                categoria_id
+              )
+            `)
+            .eq('status', 'pago')
+            .gte('data_vencimento', dataInicioMesAtual)
+            .lte('data_vencimento', dataFimMesAtual);
           
-          if (!somaPorCategoriaDespesa[categoriaNome]) {
-            somaPorCategoriaDespesa[categoriaNome] = 0;
+          if (receitasError) throw receitasError;
+          
+          // Buscar todas as categorias de receita
+          const { data: categoriasReceita, error: categoriasError } = await supabase
+            .from('categorias_receitas' as any)
+            .select('id, nome');
+          
+          if (categoriasError) throw categoriasError;
+          
+          // Mapear IDs de categorias para nomes
+          const mapaCategorias: Record<string, string> = {};
+          if (categoriasReceita && Array.isArray(categoriasReceita)) {
+            categoriasReceita.forEach((cat: any) => {
+              mapaCategorias[cat.id] = cat.nome;
+            });
           }
           
-          somaPorCategoriaDespesa[categoriaNome] += Number(item.valor) || 0;
-        });
-      }
+          // Agrupar valores por categoria
+          const somaPorCategoria: Record<string, number> = {};
+          
+          if (receitasItensComCategoria && Array.isArray(receitasItensComCategoria)) {
+            receitasItensComCategoria.forEach((item: any) => {
+              const categoriaId = item.receita?.categoria_id;
+              const categoriaNome = categoriaId ? (mapaCategorias[categoriaId] || 'Outros') : 'Sem categoria';
+              
+              if (!somaPorCategoria[categoriaNome]) {
+                somaPorCategoria[categoriaNome] = 0;
+              }
+              
+              somaPorCategoria[categoriaNome] += Number(item.valor) || 0;
+            });
+          }
+          
+          // Se não tiver dados reais, usar dados de exemplo
+          if (Object.keys(somaPorCategoria).length === 0) {
+            receitasPorCategoria = {
+              "Projetos": 5000,
+              "Consultoria": 3000,
+              "Outros": 2000
+            };
+          } else {
+            // Ordenar por valor (do maior para o menor)
+            receitasPorCategoria = Object.fromEntries(
+              Object.entries(somaPorCategoria)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 6) // Limitar para os 6 maiores para melhor visualização
+            );
+          }
+        } catch (error) {
+          console.error('Erro ao obter categorias de receitas:', error);
+          // Usar dados de exemplo em caso de erro
+          receitasPorCategoria = {
+            "Projetos": 5000,
+            "Consultoria": 3000,
+            "Outros": 2000
+          };
+        }
+      })(),
       
-      // Se não tiver dados reais, usar dados de exemplo
-      if (Object.keys(somaPorCategoriaDespesa).length === 0) {
-        despesasPorCategoria = {
-          "Operacional": 2500,
-          "Marketing": 1500,
-          "Administrativo": 1000
-        };
-      } else {
-        despesasPorCategoria = somaPorCategoriaDespesa;
-      }
-    } catch (error) {
-      console.error('Erro ao obter categorias de despesas:', error);
-      // Usar dados de exemplo em caso de erro
-      despesasPorCategoria = {
-        "Operacional": 2500,
-        "Marketing": 1500,
-        "Administrativo": 1000
-      };
-    }
+      // Buscar dados de categorias de despesas
+      (async () => {
+        try {
+          // Buscar despesas com suas categorias
+          const { data: despesasComCategoria, error: despesasError } = await supabase
+            .from('despesas' as any)
+            .select(`
+              id,
+              valor,
+              status_pagamento,
+              categoria_id
+            `)
+            .eq('status_pagamento', 'pago')
+            .gte('data_lancamento', dataInicioMesAtual)
+            .lte('data_lancamento', dataFimMesAtual);
+          
+          if (despesasError) throw despesasError;
+          
+          // Buscar todas as categorias de despesa
+          const { data: categoriasDespesa, error: categoriasError } = await supabase
+            .from('categorias_despesas' as any)
+            .select('id, nome');
+          
+          if (categoriasError) throw categoriasError;
+          
+          // Mapear IDs de categorias para nomes
+          const mapaCategoriasDespesas: Record<string, string> = {};
+          if (categoriasDespesa && Array.isArray(categoriasDespesa)) {
+            categoriasDespesa.forEach((cat: any) => {
+              mapaCategoriasDespesas[cat.id] = cat.nome;
+            });
+          }
+          
+          // Agrupar valores por categoria
+          const somaPorCategoriaDespesa: Record<string, number> = {};
+          
+          if (despesasComCategoria && Array.isArray(despesasComCategoria)) {
+            despesasComCategoria.forEach((item: any) => {
+              const categoriaId = item.categoria_id;
+              const categoriaNome = categoriaId ? (mapaCategoriasDespesas[categoriaId] || 'Outros') : 'Sem categoria';
+              
+              if (!somaPorCategoriaDespesa[categoriaNome]) {
+                somaPorCategoriaDespesa[categoriaNome] = 0;
+              }
+              
+              somaPorCategoriaDespesa[categoriaNome] += Number(item.valor) || 0;
+            });
+          }
+          
+          // Se não tiver dados reais, usar dados de exemplo
+          if (Object.keys(somaPorCategoriaDespesa).length === 0) {
+            despesasPorCategoria = {
+              "Operacional": 2500,
+              "Marketing": 1500,
+              "Administrativo": 1000
+            };
+          } else {
+            // Ordenar por valor (do maior para o menor)
+            despesasPorCategoria = Object.fromEntries(
+              Object.entries(somaPorCategoriaDespesa)
+                .sort((a, b) => b[1] - a[1])
+                .slice(0, 6) // Limitar para os 6 maiores para melhor visualização
+            );
+          }
+        } catch (error) {
+          console.error('Erro ao obter categorias de despesas:', error);
+          // Usar dados de exemplo em caso de erro
+          despesasPorCategoria = {
+            "Operacional": 2500,
+            "Marketing": 1500,
+            "Administrativo": 1000
+          };
+        }
+      })()
+    ]);
 
     // 7. Obter histórico dos últimos 9 meses para o fluxo mensal
     const fluxoMensal = [];
