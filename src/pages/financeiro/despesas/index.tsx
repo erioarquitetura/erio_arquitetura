@@ -10,6 +10,7 @@ import { Calendar as CalendarComponent } from '@/components/ui/calendar';
 import { PageLayout } from '@/components/layout/PageLayout';
 import { toast } from 'sonner';
 import { DespesaFormModal } from '@/components/despesas/DespesaFormModal';
+import { DespesaPesquisaModal } from '@/components/despesas/DespesaPesquisaModal';
 import { Despesa } from '@/types/despesa';
 import { listarDespesas, excluirDespesa } from '@/services/despesaService';
 import { formatarMoeda } from '@/lib/format';
@@ -22,6 +23,7 @@ export default function DespesasPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isFormModalOpen, setIsFormModalOpen] = useState(false);
   const [isExcluindoDialogOpen, setIsExcluindoDialogOpen] = useState(false);
+  const [isPesquisaAvancadaOpen, setIsPesquisaAvancadaOpen] = useState(false);
   const [despesaAtual, setDespesaAtual] = useState<Despesa | null>(null);
   const [filtro, setFiltro] = useState('');
   const [dataInicio, setDataInicio] = useState<Date | undefined>(undefined);
@@ -189,6 +191,14 @@ export default function DespesasPage() {
                 </div>
               </div>
               <div className="w-full md:w-1/2 flex flex-row gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsPesquisaAvancadaOpen(true)}
+                  className="flex-none"
+                >
+                  <FileText className="mr-2 h-4 w-4" />
+                  Pesquisa Avançada
+                </Button>
                 <Popover open={isPeriodoAberto} onOpenChange={setIsPeriodoAberto}>
                   <PopoverTrigger asChild>
                     <Button
@@ -376,6 +386,12 @@ export default function DespesasPage() {
             )}
           </CardContent>
         </Card>
+
+        {/* Modal de pesquisa avançada */}
+        <DespesaPesquisaModal
+          isOpen={isPesquisaAvancadaOpen}
+          onOpenChange={setIsPesquisaAvancadaOpen}
+        />
 
         {/* Modal de criação/edição de despesa */}
         <DespesaFormModal 

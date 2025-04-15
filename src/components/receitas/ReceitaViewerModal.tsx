@@ -28,7 +28,8 @@ import {
 import { 
   buscarReceitaCompleta, 
   atualizarStatusItemReceita,
-  gerarTokenCompartilhamento
+  gerarTokenCompartilhamento,
+  carregarReceitaParaFormulario
 } from '@/services/receitaService';
 import { Receita, ReceitaItem, ReceitaStatus } from '@/types/receita';
 import { toast } from 'sonner';
@@ -73,7 +74,7 @@ export function ReceitaViewerModal({ isOpen, onOpenChange, receita }: ReceitaVie
     setIsLoading(true);
     try {
       console.log('Carregando detalhes completos da receita ID:', receita.id);
-      const data = await buscarReceitaCompleta(receita.id);
+      const data = await carregarReceitaParaFormulario(receita.id);
       console.log('Detalhes recebidos:', data);
       
       if (!data) {
@@ -81,7 +82,7 @@ export function ReceitaViewerModal({ isOpen, onOpenChange, receita }: ReceitaVie
         return;
       }
       
-      console.log('Itens da receita:', data.itens?.length);
+      console.log('Itens da receita carregados:', data.itens?.length);
       setReceitaDetalhada(data);
     } catch (error) {
       console.error('Erro ao carregar receita:', error);
@@ -94,10 +95,13 @@ export function ReceitaViewerModal({ isOpen, onOpenChange, receita }: ReceitaVie
   const handleMarcarComoPago = async (item: ReceitaItem) => {
     setItemAtualizando(item.id);
     try {
+      // Usar a data de pagamento do item se estiver definida ou a data atual
+      const dataPagamento = item.data_pagamento || new Date().toISOString();
+      
       const sucesso = await atualizarStatusItemReceita(
         item.id, 
         'pago', 
-        new Date().toISOString()
+        dataPagamento
       );
 
       if (sucesso) {
@@ -218,6 +222,9 @@ export function ReceitaViewerModal({ isOpen, onOpenChange, receita }: ReceitaVie
     window.open(`mailto:${receitaDetalhada.cliente.email}?subject=${assunto}&body=${corpo}`, '_blank');
   };
 
+  // Adicionando a exibição do nome do cliente
+  const clienteNome = receitaDetalhada?.cliente?.nome || 'Cliente não encontrado';
+
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto" aria-describedby="receita-viewer-description">
@@ -331,7 +338,7 @@ export function ReceitaViewerModal({ isOpen, onOpenChange, receita }: ReceitaVie
                 
                   <div>
                     <p className="text-sm font-medium text-gray-500">Cliente</p>
-                    <p className="font-medium text-gray-800">{receitaDetalhada.cliente?.nome || '-'}</p>
+                    <p className="font-medium text-gray-800">{clienteNome}</p>
                   </div>
                   <div>
                     <p className="text-sm font-medium text-gray-500">Proposta</p>
@@ -411,6 +418,10 @@ export function ReceitaViewerModal({ isOpen, onOpenChange, receita }: ReceitaVie
                             <div>
                               <p className="text-sm font-medium text-gray-500">Vencimento</p>
                               <p className="text-gray-700">{formatarData(item.data_vencimento)}</p>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-500">Data de Pagamento</p>
+                              <p className="text-gray-700">{item.data_pagamento ? formatarData(item.data_pagamento) : '-'}</p>
                             </div>
                           </div>
 

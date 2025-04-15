@@ -4,9 +4,11 @@ import {
   ReceitaFormValues, 
   ReceitaItem, 
   FormaPagamento,
-  ReceitaStatus
+  ReceitaStatus,
+  ReceitaFiltro
 } from "@/types/receita";
 import { toast } from "sonner";
+import { PostgrestResponse } from "@supabase/supabase-js";
 
 /**
  * Busca as formas de pagamento disponíveis
@@ -97,6 +99,7 @@ export const criarReceita = async (receita: ReceitaFormValues): Promise<Receita 
       forma_pagamento_id: item.forma_pagamento_id,
       valor: item.valor,
       data_vencimento: item.data_vencimento,
+      data_pagamento: item.data_pagamento || null,
       parcela: item.parcela || 1,
       total_parcelas: item.total_parcelas || 1,
       taxa_juros: item.taxa_juros || 0,
@@ -126,55 +129,110 @@ export const criarReceita = async (receita: ReceitaFormValues): Promise<Receita 
  */
 export const buscarReceitaCompleta = async (id: string): Promise<Receita | null> => {
   try {
-    console.log('Iniciando busca de receita completa, ID:', id);
+    console.log(`Buscando detalhes completos da receita ${id}...`);
     
-    // Buscar dados da receita
-    const { data: receita, error: receitaError } = await supabase
-      .from('receitas' as any)
+    // Consulta Supabase com todos os relacionamentos necessários
+    const { data, error } = await supabase
+      .from('receitas')
       .select(`
-        *,
-        proposta:proposta_id (*),
-        categoria:categoria_id (*),
-        cliente:cliente_id (*)
+        id,
+        proposta_id,
+        categoria_id,
+        cliente_id,
+        valor_total,
+        descricao,
+        status,
+        data_vencimento,
+        data_pagamento,
+        observacoes,
+        data_criacao,
+        data_atualizacao,
+        proposta:proposta_id(
+          id, 
+          codigo, 
+          titulo, 
+          valor_total,
+          status
+        ),
+        categoria:categoria_id(
+          id, 
+          nome, 
+          descricao
+        ),
+        cliente:cliente_id(
+          id, 
+          nome, 
+          documento, 
+          telefone, 
+          email
+        ),
+        itens:receitas_itens(
+          id, 
+          receita_id, 
+          condicao_pagamento_id, 
+          forma_pagamento_id, 
+          valor, 
+          status, 
+          data_vencimento, 
+          data_pagamento, 
+          parcela, 
+          total_parcelas, 
+          taxa_juros, 
+          detalhes_pagamento, 
+          descricao,
+          ordem,
+          forma_pagamento:forma_pagamento_id(
+            id, 
+            nome, 
+            descricao,
+            requer_detalhes
+          ),
+          condicao_pagamento:condicao_pagamento_id(
+            id, 
+            descricao, 
+            percentual, 
+            valor,
+            ordem
+          )
+        )
       `)
       .eq('id', id)
       .single();
-
-    if (receitaError) {
-      console.error('Erro ao buscar receita principal:', receitaError);
-      throw receitaError;
+    
+    if (error) {
+      console.error('Erro na consulta da receita:', error);
+      throw error;
     }
     
-    console.log('Receita principal encontrada:', receita);
-
-    // Buscar itens da receita
-    const { data: itens, error: itensError } = await supabase
-      .from('receitas_itens' as any)
-      .select(`
-        *,
-        condicao_pagamento:condicao_pagamento_id (*),
-        forma_pagamento:forma_pagamento_id (*)
-      `)
-      .eq('receita_id', id)
-      .order('ordem', { ascending: true });
-
-    if (itensError) {
-      console.error('Erro ao buscar itens da receita:', itensError);
-      throw itensError;
+    if (!data) {
+      console.warn(`Nenhuma receita encontrada com o ID ${id}`);
+      return null;
     }
     
-    console.log('Itens encontrados:', itens?.length, itens);
-
-    // Retornar a receita com os itens
-    const receitaCompleta = {
-      ...receita,
-      itens: itens || []
-    } as unknown as Receita;
+    console.log(`Receita encontrada: ID=${data.id}, Itens=${data.itens?.length || 0}`);
     
-    console.log('Receita completa montada:', receitaCompleta);
-    return receitaCompleta;
+    if (data.itens && data.itens.length > 0) {
+      console.log(`Primeiro item: ID=${data.itens[0].id}, Valor=${data.itens[0].valor}`);
+    } else {
+      console.warn('A receita não possui itens');
+    }
+    
+    // Garantir que os itens estejam ordenados por data de vencimento
+    const itensOrdenados = data.itens?.sort((a, b) => {
+      const dataA = new Date(a.data_vencimento).getTime();
+      const dataB = new Date(b.data_vencimento).getTime();
+      return dataA - dataB;
+    }) || [];
+    
+    // Garantir que itens é sempre um array e está formatado corretamente
+    const receitaFormatada = {
+      ...data,
+      itens: itensOrdenados
+    };
+    
+    return receitaFormatada as unknown as Receita;
   } catch (error) {
-    console.error('Erro ao buscar receita completa:', error);
+    console.error(`Erro ao buscar receita ${id}:`, error);
     return null;
   }
 };
@@ -207,8 +265,10 @@ export const listarReceitas = async (): Promise<Receita[]> => {
  */
 export const atualizarReceita = async (id: string, receita: ReceitaFormValues): Promise<Receita | null> => {
   try {
+    console.log('Iniciando atualização da receita:', id);
+    
     // 1. Calcular o valor total dos itens
-    const valorTotal = receita.itens.reduce((sum, item) => sum + item.valor, 0);
+    const valorTotal = receita.itens.reduce((sum, item) => sum + (item.valor || 0), 0);
 
     // 2. Atualizar a receita principal
     const { error: receitaError } = await supabase
@@ -224,6 +284,18 @@ export const atualizarReceita = async (id: string, receita: ReceitaFormValues): 
 
     if (receitaError) throw receitaError;
     
+    // 2.5 Buscar os itens existentes para preservar os status
+    const { data: itensExistentes, error: buscarItensError } = await supabase
+      .from('receitas_itens' as any)
+      .select('id, condicao_pagamento_id, status, data_pagamento')
+      .eq('receita_id', id);
+      
+    if (buscarItensError) throw buscarItensError;
+    
+    // Garantir que itensExistentes é um array
+    const itensArray = Array.isArray(itensExistentes) ? itensExistentes : [];
+    console.log('Itens existentes encontrados:', itensArray.length);
+    
     // 3. Excluir os itens existentes
     const { error: deleteError } = await supabase
       .from('receitas_itens' as any)
@@ -233,20 +305,38 @@ export const atualizarReceita = async (id: string, receita: ReceitaFormValues): 
     if (deleteError) throw deleteError;
     
     // 4. Inserir os novos itens
-    const itensParaInserir = receita.itens.map((item, index) => ({
-      receita_id: id,
-      condicao_pagamento_id: item.condicao_pagamento_id || null,
-      forma_pagamento_id: item.forma_pagamento_id,
-      valor: item.valor,
-      data_vencimento: item.data_vencimento,
-      parcela: item.parcela || 1,
-      total_parcelas: item.total_parcelas || 1,
-      taxa_juros: item.taxa_juros || 0,
-      detalhes_pagamento: item.detalhes_pagamento || null,
-      descricao: item.descricao || null,
-      ordem: index + 1,
-      status: 'pendente' as ReceitaStatus
-    }));
+    const itensParaInserir = receita.itens.map((item, index) => {
+      // Verificar se há um item existente com o mesmo ID de condição de pagamento
+      const itemExistente = itensArray.find(existente => 
+        existente && 'condicao_pagamento_id' in existente && 
+        existente.condicao_pagamento_id === item.condicao_pagamento_id
+      ) as any;
+      
+      // Usar o status do item existente se disponível, senão 'pendente'
+      const status = itemExistente && 'status' in itemExistente ? 
+        itemExistente.status : 'pendente';
+      
+      // Usar a data_pagamento do item existente se disponível, ou usar a do formulário se fornecida
+      const data_pagamento = item.data_pagamento && item.data_pagamento.trim() !== '' ? 
+        item.data_pagamento : 
+        (itemExistente && 'data_pagamento' in itemExistente ? itemExistente.data_pagamento : null);
+        
+      return {
+        receita_id: id,
+        condicao_pagamento_id: item.condicao_pagamento_id || null,
+        forma_pagamento_id: item.forma_pagamento_id,
+        valor: item.valor || 0,
+        data_vencimento: item.data_vencimento,
+        data_pagamento: data_pagamento,
+        parcela: item.parcela || 1,
+        total_parcelas: item.total_parcelas || 1,
+        taxa_juros: item.taxa_juros || 0,
+        detalhes_pagamento: item.detalhes_pagamento || null,
+        descricao: item.descricao || null,
+        ordem: index + 1,
+        status: status as ReceitaStatus
+      };
+    });
 
     const { error: itensError } = await supabase
       .from('receitas_itens' as any)
@@ -438,11 +528,18 @@ export const calcularTotalItensPagos = async (): Promise<{ valor: number; quanti
 
     if (error) throw error;
     
-    const valor = (data || []).reduce((total, item) => total + (item.valor || 0), 0);
+    let items: any[] = [];
+    if (data && Array.isArray(data)) {
+      items = data;
+    }
+    
+    const valor = items.reduce((total, item) => {
+      return total + (item && typeof item === 'object' && 'valor' in item && typeof item.valor === 'number' ? item.valor : 0);
+    }, 0);
     
     return {
       valor,
-      quantidade: data?.length || 0
+      quantidade: items.length
     };
   } catch (error) {
     console.error('Erro ao calcular total de itens pagos:', error);
@@ -462,11 +559,18 @@ export const calcularTotalItensPendentes = async (): Promise<{ valor: number; qu
 
     if (error) throw error;
     
-    const valor = (data || []).reduce((total, item) => total + (item.valor || 0), 0);
+    let items: any[] = [];
+    if (data && Array.isArray(data)) {
+      items = data;
+    }
+    
+    const valor = items.reduce((total, item) => {
+      return total + (item && typeof item === 'object' && 'valor' in item && typeof item.valor === 'number' ? item.valor : 0);
+    }, 0);
     
     return {
       valor,
-      quantidade: data?.length || 0
+      quantidade: items.length
     };
   } catch (error) {
     console.error('Erro ao calcular total de itens pendentes:', error);
@@ -486,11 +590,18 @@ export const calcularTotalItensParciaisPagos = async (): Promise<{ valor: number
 
     if (error) throw error;
     
-    const valor = (data || []).reduce((total, item) => total + (item.valor || 0), 0);
+    let items: any[] = [];
+    if (data && Array.isArray(data)) {
+      items = data;
+    }
+    
+    const valor = items.reduce((total, item) => {
+      return total + (item && typeof item === 'object' && 'valor' in item && typeof item.valor === 'number' ? item.valor : 0);
+    }, 0);
     
     return {
       valor,
-      quantidade: data?.length || 0
+      quantidade: items.length
     };
   } catch (error) {
     console.error('Erro ao calcular total de itens com pagamento parcial:', error);
@@ -623,7 +734,7 @@ export const listarItensReceita = async (filtros?: {
     if (error) throw error;
     
     // Alguns filtros precisam ser aplicados após o recebimento dos dados
-    let itensFiltrados = data as unknown as ReceitaItem[];
+    let itensFiltrados = (data || []) as unknown as ReceitaItem[];
     
     if (filtros) {
       if (filtros.cliente_id) {
@@ -706,5 +817,243 @@ export const getReceitasPeriodo = async (dataInicio: string, dataFim: string): P
   } catch (error) {
     console.error(`Erro ao buscar receitas do período (${dataInicio} a ${dataFim}):`, error);
     return [];
+  }
+};
+
+/**
+ * Busca todas as receitas, opcionalmente filtradas por critérios
+ */
+export const buscarReceitas = async (filtro?: ReceitaFiltro): Promise<Receita[]> => {
+  try {
+    let query = supabase
+      .from('receitas' as any)
+      .select(`
+        *,
+        categoria:categorias(*),
+        itens:receitas_itens(
+          *,
+          condicao_pagamento:condicoes_pagamento(*),
+          forma_pagamento:formas_pagamento(*)
+        )
+      `)
+      .order('data_criacao', { ascending: false });
+
+    // Aplicar filtros se fornecidos
+    if (filtro) {
+      if (filtro.categoria_id) {
+        query = query.eq('categoria_id', filtro.categoria_id);
+      }
+      
+      if (filtro.status) {
+        // Lidar com filtro de status - requer junção com itens
+      }
+      
+      if (filtro.data_inicio && filtro.data_fim) {
+        query = query.gte('data_criacao', filtro.data_inicio).lte('data_criacao', filtro.data_fim);
+      } else if (filtro.data_inicio) {
+        query = query.gte('data_criacao', filtro.data_inicio);
+      } else if (filtro.data_fim) {
+        query = query.lte('data_criacao', filtro.data_fim);
+      }
+    }
+    
+    const { data, error } = await query as { data: any; error: any };
+    
+    if (error) throw error;
+    
+    if (!data || !Array.isArray(data)) return [];
+    
+    return data.map(receita => ({
+      ...receita,
+      itens: Array.isArray(receita.itens) ? receita.itens : []
+    })) as Receita[];
+  } catch (error) {
+    console.error('Erro ao buscar receitas:', error);
+    return [];
+  }
+};
+
+type PostgrestReceitaResult = PostgrestResponse<any> & {
+  data: any;
+  error: any;
+}
+
+export async function getReceitaById(id: string): Promise<Receita | null> {
+  const { data, error } = await supabase
+    .from("receitas")
+    .select(`
+      *,
+      categoria:categoria_id(id, nome),
+      cliente:cliente_id(id, nome, cnpj, cpf, email),
+      proposta:proposta_id(id, codigo, valor_total),
+      itens:receita_itens(
+        id,
+        valor,
+        data_vencimento,
+        data_pagamento,
+        parcela,
+        total_parcelas,
+        taxa_juros,
+        detalhes_pagamento,
+        descricao,
+        status,
+        forma_pagamento:forma_pagamento_id(id, nome),
+        condicao_pagamento:condicao_pagamento_id(id, nome, taxa_juros, parcelas)
+      )
+    `)
+    .eq("id", id)
+    .single() as PostgrestReceitaResult;
+
+  if (error || !data) {
+    console.error("Erro ao buscar receita:", error);
+    return null;
+  }
+
+  return data as unknown as Receita;
+}
+
+export async function getReceitas(filtros?: ReceitaFiltro): Promise<Receita[]> {
+  let query = supabase
+    .from("receitas")
+    .select(`
+      *,
+      categoria:categoria_id(id, nome),
+      cliente:cliente_id(id, nome, cnpj, cpf, email),
+      proposta:proposta_id(id, codigo, valor_total),
+      itens:receita_itens(
+        id,
+        valor,
+        data_vencimento,
+        data_pagamento,
+        parcela,
+        total_parcelas,
+        taxa_juros,
+        detalhes_pagamento,
+        descricao,
+        status,
+        forma_pagamento:forma_pagamento_id(id, nome),
+        condicao_pagamento:condicao_pagamento_id(id, nome, taxa_juros, parcelas)
+      )
+    `);
+
+  // Apply filters if provided
+  if (filtros) {
+    if (filtros.categoria_id) {
+      query = query.eq("categoria_id", filtros.categoria_id);
+    }
+    
+    if (filtros.status) {
+      query = query.eq("status", filtros.status);
+    }
+    
+    if (filtros.data_inicio) {
+      query = query.gte("data", filtros.data_inicio);
+    }
+    
+    if (filtros.data_fim) {
+      query = query.lte("data", filtros.data_fim);
+    }
+  }
+
+  const { data, error } = await query.order("data", { ascending: false }) as PostgrestReceitaResult;
+
+  if (error) {
+    console.error("Erro ao buscar receitas:", error);
+    return [];
+  }
+
+  return (data || []) as unknown as Receita[];
+}
+
+/**
+ * Função específica para carregar todos os dados para o formulário de edição de uma receita
+ * Garante que todos os relacionamentos estejam carregados corretamente
+ */
+export const carregarReceitaParaFormulario = async (id: string): Promise<Receita | null> => {
+  try {
+    console.log(`Carregando dados completos da receita ${id} para formulário de edição...`);
+    
+    // 1. Buscar a receita com seus dados básicos
+    const { data: receita, error: receitaError } = await supabase
+      .from('receitas')
+      .select(`
+        id, proposta_id, categoria_id, cliente_id, valor_total, 
+        descricao, status, data_vencimento, data_pagamento, 
+        observacoes, data_criacao, data_atualizacao,
+        proposta:proposta_id(id, codigo, titulo, valor_total, status),
+        categoria:categoria_id(id, nome, descricao),
+        cliente:cliente_id(id, nome, documento, telefone, email)
+      `)
+      .eq('id', id)
+      .single();
+    
+    if (receitaError || !receita) {
+      console.error('Erro ao buscar receita para formulário:', receitaError);
+      return null;
+    }
+    
+    // 2. Buscar todos os itens da receita separadamente
+    const { data: itens, error: itensError } = await supabase
+      .from('receitas_itens')
+      .select(`
+        id, receita_id, condicao_pagamento_id, forma_pagamento_id,
+        valor, status, data_vencimento, data_pagamento, parcela,
+        total_parcelas, taxa_juros, detalhes_pagamento, 
+        descricao, ordem, data_criacao, data_atualizacao
+      `)
+      .eq('receita_id', id)
+      .order('data_vencimento', { ascending: true });
+    
+    if (itensError) {
+      console.error('Erro ao buscar itens da receita:', itensError);
+      return null;
+    }
+    
+    console.log(`Encontrados ${itens?.length || 0} itens para a receita ${id}`);
+    
+    // 3. Para cada item, buscar a forma de pagamento e condição de pagamento
+    const itensCompletos = await Promise.all((itens || []).map(async (item) => {
+      // Buscar forma de pagamento
+      let formaPagamento = null;
+      if (item.forma_pagamento_id) {
+        const { data: fp } = await supabase
+          .from('formas_pagamento')
+          .select('*')
+          .eq('id', item.forma_pagamento_id)
+          .single();
+        formaPagamento = fp;
+      }
+      
+      // Buscar condição de pagamento
+      let condicaoPagamento = null;
+      if (item.condicao_pagamento_id) {
+        const { data: cp } = await supabase
+          .from('proposta_condicoes_pagamento')
+          .select('*')
+          .eq('id', item.condicao_pagamento_id)
+          .single();
+        condicaoPagamento = cp;
+      }
+      
+      // Retornar item com todas as relações
+      return {
+        ...item,
+        forma_pagamento: formaPagamento,
+        condicao_pagamento: condicaoPagamento
+      };
+    }));
+    
+    console.log(`Todos os ${itensCompletos.length} itens carregados com seus relacionamentos`);
+    
+    // 4. Montar o objeto final da receita com todos os relacionamentos
+    const receitaCompleta = {
+      ...receita,
+      itens: itensCompletos
+    };
+    
+    return receitaCompleta as unknown as Receita;
+  } catch (error) {
+    console.error(`Erro ao carregar receita ${id} para formulário:`, error);
+    return null;
   }
 }; 

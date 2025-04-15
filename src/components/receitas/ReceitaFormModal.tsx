@@ -44,7 +44,8 @@ import {
   verificarPropostaPorCodigoJaTemReceita,
   verificarPropostaJaTemReceita,
   verificarPropostaPorCodigoAprovada,
-  verificarPropostaAprovada
+  verificarPropostaAprovada,
+  carregarReceitaParaFormulario
 } from '@/services/receitaService';
 import { listarCategoriasReceitas } from '@/services/categoriaReceitaService';
 import { listarBancos } from '@/services/bancoService';
@@ -78,6 +79,7 @@ const formSchema = z.object({
       forma_pagamento_id: z.string(),
       valor: z.number().positive('Valor deve ser maior que zero'),
       data_vencimento: z.string(),
+      data_pagamento: z.string().optional(),
       parcela: z.number().optional(),
       total_parcelas: z.number().optional(),
       taxa_juros: z.number().optional(),
@@ -115,7 +117,8 @@ export function ReceitaFormModal({ isOpen, onOpenChange, receita, onReceitaSalva
       itens: [{ 
         forma_pagamento_id: '', 
         valor: 0, 
-        data_vencimento: format(new Date(), 'yyyy-MM-dd') 
+        data_vencimento: format(new Date(), 'yyyy-MM-dd'),
+        data_pagamento: ''
       }]
     }
   });
@@ -140,10 +143,36 @@ export function ReceitaFormModal({ isOpen, onOpenChange, receita, onReceitaSalva
   }, []);
 
   useEffect(() => {
-    if (receita) {
-      preencherFormularioComReceita(receita);
+    const carregarReceitaParaEdicao = async () => {
+      if (receita && receita.id) {
+        try {
+          setIsLoading(true);
+          console.log('Carregando receita completa para edição:', receita.id);
+          
+          // Usar a função especializada que carrega todos os relacionamentos
+          const receitaCompleta = await carregarReceitaParaFormulario(receita.id);
+          
+          if (receitaCompleta) {
+            console.log('Receita carregada com sucesso:', receitaCompleta);
+            console.log('Total de itens carregados:', receitaCompleta.itens?.length);
+            preencherFormularioComReceita(receitaCompleta);
+          } else {
+            console.error('Falha ao carregar receita completa');
+            toast.error('Não foi possível carregar os dados da receita para edição');
+          }
+        } catch (error) {
+          console.error('Erro ao carregar receita para edição:', error);
+          toast.error('Falha ao carregar dados da receita');
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+    
+    if (receita && receita.id) {
+      carregarReceitaParaEdicao();
     }
-  }, [receita, categorias, formasPagamento]);
+  }, [receita?.id]);
 
   useEffect(() => {
     if (bancoSelecionadoAtual) {
@@ -254,6 +283,7 @@ export function ReceitaFormModal({ isOpen, onOpenChange, receita, onReceitaSalva
         forma_pagamento_id: item.forma_pagamento_id,
         valor: item.valor,
         data_vencimento: item.data_vencimento ? format(new Date(item.data_vencimento), 'yyyy-MM-dd') : format(new Date(), 'yyyy-MM-dd'),
+        data_pagamento: item.data_pagamento ? format(new Date(item.data_pagamento), 'yyyy-MM-dd') : '',
         parcela: item.parcela,
         total_parcelas: item.total_parcelas,
         taxa_juros: item.taxa_juros,
@@ -313,6 +343,7 @@ export function ReceitaFormModal({ isOpen, onOpenChange, receita, onReceitaSalva
             forma_pagamento_id: '',
             valor: condicao.valor,
             data_vencimento: format(new Date(), 'yyyy-MM-dd'),
+            data_pagamento: format(new Date(), 'yyyy-MM-dd'),
             descricao: condicao.descricao,
           }));
           form.setValue('itens', itens);
@@ -337,7 +368,8 @@ export function ReceitaFormModal({ isOpen, onOpenChange, receita, onReceitaSalva
       {
         forma_pagamento_id: '',
         valor: 0,
-        data_vencimento: format(new Date(), 'yyyy-MM-dd')
+        data_vencimento: format(new Date(), 'yyyy-MM-dd'),
+        data_pagamento: ''
       }
     ]);
   };
@@ -601,6 +633,7 @@ export function ReceitaFormModal({ isOpen, onOpenChange, receita, onReceitaSalva
           forma_pagamento_id: item.forma_pagamento_id,
           valor: Number(item.valor),
           data_vencimento: item.data_vencimento,
+          data_pagamento: item.data_pagamento,
           parcela: item.parcela,
           total_parcelas: item.total_parcelas,
           taxa_juros: item.taxa_juros,
@@ -988,7 +1021,7 @@ export function ReceitaFormModal({ isOpen, onOpenChange, receita, onReceitaSalva
                         />
                       </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <FormField
                           control={form.control}
                           name={`itens.${originalIndex}.data_vencimento`}
@@ -998,7 +1031,7 @@ export function ReceitaFormModal({ isOpen, onOpenChange, receita, onReceitaSalva
                               <FormControl>
                                 <Input 
                                   type="date" 
-                                  {...field}
+                                  {...field} 
                                   className="border-gray-300 focus:border-erio-500 focus:ring-erio-500"
                                 />
                               </FormControl>
@@ -1006,7 +1039,52 @@ export function ReceitaFormModal({ isOpen, onOpenChange, receita, onReceitaSalva
                             </FormItem>
                           )}
                         />
+                        
+                        <FormField
+                          control={form.control}
+                          name={`itens.${originalIndex}.data_pagamento`}
+                          render={({ field }) => (
+                            <FormItem>
+                              <FormLabel className="text-gray-700 flex items-center">
+                                Data de Pagamento
+                                <span className="text-xs ml-2 bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">Opcional</span>
+                                {field.value && 
+                                  <span className="text-xs ml-2 bg-green-100 text-green-800 px-2 py-0.5 rounded-full">Preenchida</span>
+                                }
+                              </FormLabel>
+                              <FormControl>
+                                <Input 
+                                  type="date" 
+                                  value={field.value || ''}
+                                  onChange={(e) => {
+                                    field.onChange(e.target.value);
+                                    // Informamos visualmente que a data foi preenchida
+                                    if (e.target.value) {
+                                      toast.info("A data de pagamento foi preenchida. O sistema irá considerar este item como pago ao salvar.");
+                                    }
+                                  }}
+                                  className={`border-gray-300 focus:border-erio-500 focus:ring-erio-500 ${
+                                    field.value ? 'bg-green-50 border-green-300' : ''
+                                  }`}
+                                />
+                              </FormControl>
+                              {field.value ? (
+                                <p className="text-xs text-green-600 mt-1 flex items-center">
+                                  <span className="mr-1">✓</span> 
+                                  Este item será considerado PAGO
+                                </p>
+                              ) : (
+                                <p className="text-xs text-gray-500 mt-1">
+                                  Ao preencher a data de pagamento, este item será considerado como <span className="font-semibold text-green-600">PAGO</span>
+                                </p>
+                              )}
+                              <FormMessage className="text-red-500" />
+                            </FormItem>
+                          )}
+                        />
+                      </div>
 
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
                         <FormField
                           control={form.control}
                           name={`itens.${originalIndex}.descricao`}

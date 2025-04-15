@@ -96,10 +96,18 @@ export interface ReceitaFormValues {
     forma_pagamento_id: string;
     valor: number;
     data_vencimento: string;
+    data_pagamento?: string;
     parcela?: number;
     total_parcelas?: number;
     taxa_juros?: number;
     detalhes_pagamento?: DetalhesPagamento;
     descricao?: string;
   }[];
+}
+
+export interface ReceitaFiltro {
+  categoria_id?: string;
+  status?: ReceitaStatus;
+  data_inicio?: string;
+  data_fim?: string;
 } 

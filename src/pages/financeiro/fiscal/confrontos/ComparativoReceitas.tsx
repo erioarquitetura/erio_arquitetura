@@ -416,7 +416,7 @@ export default function ComparativoReceitas({ dataInicio, dataFim }: Comparativo
                           ? 'Existem itens de receita sem nota fiscal emitida. Regularize a situação para evitar problemas futuros.'
                           : 'Há uma diferença significativa entre receitas e notas fiscais emitidas. Regularize a situação fiscal urgentemente para evitar penalidades.'}
                       </p>
-                    </div>
+              </div>
                   </Alert>
                 )}
               </>

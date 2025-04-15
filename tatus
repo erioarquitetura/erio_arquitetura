@@ -1,0 +1,163 @@
+warning: in the working copy of 'src/services/dashboardService.ts', LF will be replaced by CRLF the next time Git touches it
+[1mdiff --git a/src/services/dashboardService.ts b/src/services/dashboardService.ts[m
+[1mindex bdb9c33..4d80fab 100644[m
+[1m--- a/src/services/dashboardService.ts[m
+[1m+++ b/src/services/dashboardService.ts[m
+[36m@@ -75,141 +75,165 @@[m [mexport const obterEstatisticasDashboard = async (mesAnoSelecionado?: string): Pr[m
+       ?.filter(item => item.status_pagamento === 'pendente')[m
+       .reduce((total, item) => total + (item.valor || 0), 0) || 0;[m
+ [m
+[31m-    // 5. Obter dados para gráfico de categorias de receitas[m
+[32m+[m[32m    // 5. Obter dados para gráfico de categorias de receitas e despesas[m
+     // Inicializar com alguns valores padrão caso não existam dados reais[m
+     let receitasPorCategoria: Record<string, number> = {};[m
+[32m+[m[32m    let despesasPorCategoria: Record<string, number> = {};[m
+     [m
+[31m-    try {[m
+[31m-      // Buscar itens de receita com sua categoria[m
+[31m-      const { data: receitasItensComCategoria } = await supabase[m
+[31m-        .from('receitas_itens' as any)[m
+[31m-        .select(`[m
+[31m-          id,[m
+[31m-          valor,[m
+[31m-          status,[m
+[31m-          receita:receita_id ([m
+[31m-            categoria_id[m
+[31m-          )[m
+[31m-        `)[m
+[31m-        .eq('status', 'pago')[m
+[31m-        .gte('data_vencimento', dataInicioMesAtual)[m
+[31m-        .lte('data_vencimento', dataFimMesAtual);[m
+[31m-      [m
+[31m-      // Buscar todas as categorias de receita[m
+[31m-      const { data: categoriasReceita } = await supabase[m
+[31m-        .from('categorias_receitas' as any)[m
+[31m-        .select('id, nome');[m
+[31m-      [m
+[31m-      // Mapear IDs de categorias para nomes[m
+[31m-      const mapaCategorias: Record<string, string> = {};[m
+[31m-      if (categoriasReceita && Array.isArray(categoriasReceita)) {[m
+[31m-        categoriasReceita.forEach((cat: any) => {[m
+[31m-          mapaCategorias[cat.id] = cat.nome;[m
+[31m-        });[m
+[31m-      }[m
+[31m-      [m
+[31m-      // Agrupar valores por categoria[m
+[31m-      const somaPorCategoria: Record<string, number> = {};[m
+[31m-      [m
+[31m-      if (receitasItensComCategoria && Array.isArray(receitasItensComCategoria)) {[m
+[31m-        receitasItensComCategoria.forEach((item: any) => {[m
+[31m-          const categoriaId = item.receita?.categoria_id;[m
+[31m-          const categoriaNome = categoriaId ? (mapaCategorias[categoriaId] || 'Outros') : 'Sem categoria';[m
+[32m+[m[32m    // Usar Promise.all para buscar dados de categorias em paralelo[m
+[32m+[m[32m    await Promise.all([[m
+[32m+[m[32m      // Buscar dados de categorias de receitas[m
+[32m+[m[32m      (async () => {[m
+[32m+[m[32m        try {[m
+[32m+[m[32m          // Buscar itens de receita com sua categoria[m
+[32m+[m[32m          const { data: receitasItensComCategoria, error: receitasError } = await supabase[m
+[32m+[m[32m            .from('receitas_itens' as any)[m
+[32m+[m[32m            .select(`[m
+[32m+[m[32m              id,[m
+[32m+[m[32m              valor,[m
+[32m+[m[32m              status,[m
+[32m+[m[32m              receita:receita_id ([m
+[32m+[m[32m                categoria_id[m
+[32m+[m[32m              )[m
+[32m+[m[32m            `)[m
+[32m+[m[32m            .eq('status', 'pago')[m
+[32m+[m[32m            .gte('data_vencimento', dataInicioMesAtual)[m
+[32m+[m[32m            .lte('data_vencimento', dataFimMesAtual);[m
+[32m+[m[41m          [m
+[32m+[m[32m          if (receitasError) throw receitasError;[m
+[32m+[m[41m          [m
+[32m+[m[32m          // Buscar todas as categorias de receita[m
+[32m+[m[32m          const { data: categoriasReceita, error: categoriasError } = await supabase[m
+[32m+[m[32m            .from('categorias_receitas' as any)[m
+[32m+[m[32m            .select('id, nome');[m
+           [m
+[31m-          if (!somaPorCategoria[categoriaNome]) {[m
+[31m-            somaPorCategoria[categoriaNome] = 0;[m
+[32m+[m[32m          if (categoriasError) throw categoriasError;[m
+[32m+[m[41m          [m
+[32m+[m[32m          // Mapear IDs de categorias para nomes[m
+[32m+[m[32m          const mapaCategorias: Record<string, string> = {};[m
+[32m+[m[32m          if (categoriasReceita && Array.isArray(categoriasReceita)) {[m
+[32m+[m[32m            categoriasReceita.forEach((cat: any) => {[m
+[32m+[m[32m              mapaCategorias[cat.id] = cat.nome;[m
+[32m+[m[32m            });[m
+           }[m
+           [m
+[31m-          somaPorCategoria[categoriaNome] += Number(item.valor) || 0;[m
+[31m-        });[m
+[31m-      }[m
+[31m-      [m
+[31m-      // Se não tiver dados reais, usar dados de exemplo[m
+[31m-      if (Object.keys(somaPorCategoria).length === 0) {[m
+[31m-        receitasPorCategoria = {[m
+[31m-          "Projetos": 5000,[m
+[31m-          "Consultoria": 3000,[m
+[31m-          "Outros": 2000[m
+[31m-        };[m
+[31m-      } else {[m
+[31m-        receitasPorCategoria = somaPorCategoria;[m
+[31m-      }[m
+[31m-    } catch (error) {[m
+[31m-      console.error('Erro ao obter categorias de receitas:', error);[m
+[31m-      // Usar dados de exemplo em caso de erro[m
+[31m-      receitasPorCategoria = {[m
+[31m-        "Projetos": 5000,[m
+[31m-        "Consultoria": 3000,[m
+[31m-        "Outros": 2000[m
+[31m-      };[m
+[31m-    }[m
+[31m-    [m
+[31m-    // 6. Obter dados para gráfico de categorias de despesas[m
+[31m-    // Inicializar com alguns valores padrão caso não existam dados reais[m
+[31m-    let despesasPorCategoria: Record<string, number> = {};[m
+[31m-    [m
+[31m-    try {[m
+[31m-      // Buscar despesas com suas categorias[m
+[31m-      const { data: despesasComCategoria } = await supabase[m
+[31m-        .from('despesas' as any)[m
+[31m-        .select(`[m
+[31m-          id,[m
+[31m-          valor,[m
+[31m-          status_pagamento,[m
+[31m-          categoria_id[m
+[31m-        `)[m
+[31m-        .eq('status_pagamento', 'pago')[m
+[31m-        .gte('data_lancamento', dataInicioMesAtual)[m
+[31m-        .lte('data_lancamento', dataFimMesAtual);[m
+[31m-      [m
+[31m-      // Buscar todas as categorias de despesa[m
+[31m-      const { data: categoriasDespesa } = await supabase[m
+[31m-        .from('categorias_despesas' as any)[m
+[31m-        .select('id, nome');[m
+[31m-      [m
+[31m-      // Mapear IDs de categorias para nomes[m
+[31m-      const mapaCategoriasDespesas: Record<string, string> = {};[m
+[31m-      if (categoriasDespesa && Array.isArray(categoriasDespesa)) {[m
+[31m-        categoriasDespesa.forEach((cat: any) => {[m
+[31m-          mapaCategoriasDespesas[cat.id] = cat.nome;[m
+[31m-        });[m
+[31m-      }[m
+[31m-      [m
+[31m-      // Agrupar valores por categoria[m
+[31m-      const somaPorCategoriaDespesa: Record<string, number> = {};[m
+[31m-      [m
+[31m-      if (despesasComCategoria && Array.isArray(despesasComCategoria)) {[m
+[31m-        despesasComCategoria.forEach((item: any) => {[m
+[31m-          const categoriaId = item.categoria_id;[m
+[31m-          const categoriaNome = categoriaId ? (mapaCategoriasDespesas[categoriaId] || 'Outros') : 'Sem categoria';[m
+[32m+[m[32m          // Agrupar valores por categoria[m
+[32m+[m[32m          const somaPorCategoria: Record<string, number> = {};[m
+           [m
+[31m-          if (!somaPorCategoriaDespesa[categoriaNome]) {[m
+[31m-            somaPorCategoriaDespesa[categoriaNome] = 0;[m
+[32m+[m[32m          if (receitasItensComCategoria && Array.isArray(receitasItensComCategoria)) {[m
+[32m+[m[32m            receitasItensComCategoria.forEach((item: any) => {[m
+[32m+[m[32m              const categoriaId = item.receita?.categoria_id;[m
+[32m+[m[32m              const categoriaNome = categoriaId ? (mapaCategorias[categoriaId] || 'Outros') : 'Sem categoria';[m
+[32m+[m[41m              [m
+[32m+[m[3

@@ -1,4 +1,3 @@
-
 import { 
   Cliente, 
   Fornecedor, 
@@ -28,7 +27,7 @@ export const perfilEmpresa: PerfilEmpresa = {
     estado: "SP",
     cep: "01310-100"
   },
-  logo: "/placeholder.svg"
+  logo: "/images/icons/placeholder.svg"
 };
 
 // Clientes

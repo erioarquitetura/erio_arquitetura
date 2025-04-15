@@ -8,15 +8,15 @@ import { CategoriaDespesa } from '@/types/categoriaDespesa';
 export const listarCategoriasDespesas = async (): Promise<CategoriaDespesa[]> => {
   try {
     const { data, error } = await supabase
-      .from('categorias_despesas' as any)
+      .from('categorias_despesas')
       .select('*')
-      .order('nome');
+      .order('nome', { ascending: true });
 
     if (error) throw error;
-    return data as unknown as CategoriaDespesa[];
+    return (data || []) as CategoriaDespesa[];
   } catch (error) {
     console.error('Erro ao listar categorias de despesas:', error);
-    throw error;
+    return [];
   }
 };
 

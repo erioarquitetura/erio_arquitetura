@@ -260,6 +260,7 @@ export function PesquisaItensReceitaModal({ isOpen, onOpenChange }: PesquisaIten
       'Nota Fiscal': getNumeroNotaFiscal(item.id),
       'Valor': formatarValor(item.valor).replace('R$', '').trim(),
       'Vencimento': formatarData(item.data_vencimento),
+      'Pagamento': formatarData(item.data_pagamento),
       'Status': item.status,
       'Descrição': item.descricao || item.receita?.descricao || '-'
     }));
@@ -599,6 +600,7 @@ export function PesquisaItensReceitaModal({ isOpen, onOpenChange }: PesquisaIten
                       <TableHead>NF</TableHead>
                       <TableHead>Valor</TableHead>
                       <TableHead>Vencimento</TableHead>
+                      <TableHead>Pagamento</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Descrição</TableHead>
                     </TableRow>
@@ -631,6 +633,9 @@ export function PesquisaItensReceitaModal({ isOpen, onOpenChange }: PesquisaIten
                           {formatarData(item.data_vencimento)}
                         </TableCell>
                         <TableCell>
+                          {formatarData(item.data_pagamento)}
+                        </TableCell>
+                        <TableCell>
                           {getStatusBadge(item.status)}
                         </TableCell>
                         <TableCell className="max-w-[200px] truncate">
@@ -647,7 +652,7 @@ export function PesquisaItensReceitaModal({ isOpen, onOpenChange }: PesquisaIten
                       <TableCell className="font-bold text-lg text-erio-600">
                         {formatarValor(calcularTotal())}
                       </TableCell>
-                      <TableCell colSpan={3} />
+                      <TableCell colSpan={4} />
                     </TableRow>
                   </TableFooter>
                 </Table>

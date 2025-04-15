@@ -122,7 +122,7 @@ const PagamentoPublico = () => {
               <div className="w-full h-full rounded-full border-4 border-erio-400 opacity-30 absolute"></div>
               <div className="w-full h-full absolute top-0 left-0 rounded-full border-t-4 border-erio-100 animate-spin"></div>
               <img 
-                src="/imagem/VERSÃO HORIZONTAL_COR INSTITUCIONAL.png" 
+                src="/images/logos/logo-horizontal-cor-institucional.png" 
                 alt="Logo Erio" 
                 className="max-w-48 md:max-w-64 z-10"
               />

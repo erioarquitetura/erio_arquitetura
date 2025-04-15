@@ -141,12 +141,7 @@
   }
 }
 
-/* Animações personalizadas para substituir o framer-motion */
-@keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
-}
-
+/* Animações para a página de proposta */
 @keyframes fadeInUp {
   from {
     opacity: 0;
@@ -158,23 +153,53 @@
   }
 }
 
-.animate-fade-in {
-  animation: fadeIn 0.8s ease-in-out forwards;
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
 }
 
 .animate-fade-in-up {
-  animation: fadeInUp 0.8s ease-in-out forwards;
+  animation: fadeInUp 0.8s ease-out forwards;
 }
 
-/* Delay para diferentes elementos */
-.animate-fade-in:nth-child(2) {
+.animate-fade-in {
+  animation: fadeIn 1s ease-out forwards;
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.5s ease-out forwards;
+}
+
+/* Atrasa animações em série */
+.delay-100 {
+  animation-delay: 0.1s;
+}
+
+.delay-200 {
+  animation-delay: 0.2s;
+}
+
+.delay-300 {
+  animation-delay: 0.3s;
+}
+
+.delay-400 {
+  animation-delay: 0.4s;
+}
+
+.delay-500 {
   animation-delay: 0.5s;
-}
-
-.animate-fade-in:nth-child(3) {
-  animation-delay: 1s;
-}
-
-.animate-fade-in:nth-child(4) {
-  animation-delay: 1.5s;
 }
